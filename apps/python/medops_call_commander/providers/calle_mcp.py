@@ -1,39 +1,52 @@
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict
 
 from calle import CalleClient
 
-from apps.python.medops_call_commander.config import load_calle_config, CalleConfig
+from apps.python.medops_call_commander.config import load_calle_config
+from apps.python.medops_call_commander.core.enums import CallOutcome
 from apps.python.medops_call_commander.core.models import CallPlan, CallResult
 from apps.python.medops_call_commander.providers.base import CallProvider
 
 
 class CalleMcpProvider(CallProvider):
     def __init__(self) -> None:
-        config: CalleConfig = load_calle_config()
+        config = load_calle_config()
         self._client = CalleClient(api_key=config.api_key)
-        self._webhook_url = config.webhook_url
 
     def dispatch(self, plan: CallPlan) -> str:
-        recipients: List[Dict[str, Any]] = [
-            {
-                "phones": [plan.recipient_phone],
-                "region": plan.region,
-                "locale": plan.locale,
-            }
-        ]
-
         call = self._client.calls.create_and_wait(
-            task=plan.task,
-            recipients=recipients,
-            webhook_url=self._webhook_url,
-            metadata={"call_plan_id": plan.id},
+            task=plan.script,
         )
+        return str(call["id"])
 
-        return call["id"]
+    def get_result(self, plan_id: str, external_id: str) -> CallResult:
+        payload: Dict[str, Any] = self._client.calls.get(external_id)
+        status = payload.get("status")
 
-    def get_result(self, external_id: str) -> CallResult:
-        call = self._client.calls.get(external_id)
-        return CallResult.from_calle_payload(call)
+        if status == "completed":
+            outcome = CallOutcome.COMPLETED
+        elif status == "failed":
+            outcome = CallOutcome.FAILED
+        elif status == "canceled":
+            outcome = CallOutcome.CANCELED
+        else:
+            outcome = CallOutcome.UNKNOWN
+
+        structured = payload.get("structured_result") or {}
+        completed_at_str = payload.get("completed_at")
+        if completed_at_str:
+            completed_at = datetime.fromisoformat(completed_at_str)
+        else:
+            completed_at = datetime.utcnow()
+
+        return CallResult(
+            plan_id=plan_id,
+            outcome=outcome,
+            transcript_ref=external_id,
+            structured=structured,
+            completed_at=completed_at,
+        )
 
     def cancel(self, external_id: str) -> None:
         self._client.calls.cancel(external_id)
