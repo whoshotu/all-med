@@ -21,10 +21,13 @@ class CallExecutor:
 
         while True:
             result = self._provider.get_result(plan.plan_id, external_id)
-            if result.outcome in (
-                CallOutcome.COMPLETED,
-                CallOutcome.FAILED,
-                CallOutcome.CANCELED,
-            ):
+
+            if result.outcome == CallOutcome.ANSWERED:
+                plan.state = PlanState.COMPLETED
                 return result
+
+            if result.outcome == CallOutcome.FAILED:
+                plan.state = PlanState.FAILED
+                return result
+
             time.sleep(5.0)

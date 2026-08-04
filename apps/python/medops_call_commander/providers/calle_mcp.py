@@ -15,23 +15,22 @@ class CalleMcpProvider(CallProvider):
         self._client = CalleClient(api_key=config.api_key)
 
     def dispatch(self, plan: CallPlan) -> str:
-        call = self._client.calls.create_and_wait(
+        payload: Dict[str, Any] = self._client.calls.create(
             task=plan.script,
         )
-        return str(call["id"])
+        return str(payload["id"])
 
     def get_result(self, plan_id: str, external_id: str) -> CallResult:
         payload: Dict[str, Any] = self._client.calls.get(external_id)
         status = payload.get("status")
+        task_completed = bool(payload.get("task_completed"))
 
-        if status == "completed":
-            outcome = CallOutcome.COMPLETED
+        if status == "completed" and task_completed:
+            outcome = CallOutcome.ANSWERED
         elif status == "failed":
             outcome = CallOutcome.FAILED
-        elif status == "canceled":
-            outcome = CallOutcome.CANCELED
         else:
-            outcome = CallOutcome.UNKNOWN
+            outcome = CallOutcome.OUTCOME_UNKNOWN
 
         structured = payload.get("structured_result") or {}
         completed_at_str = payload.get("completed_at")
