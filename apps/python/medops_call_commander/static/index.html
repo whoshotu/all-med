@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedOps Call Commander — CALL-E Multi-Agent HITL Orchestrator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header / Brand -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path><path d="M14 2v4"></path><path d="M18 2v4"></path><path d="M12 2v4"></path></svg>
+        </div>
+        <div>
+          <h1 class="brand-title">MedOps Call Commander</h1>
+          <p class="brand-subtitle">Multi-Agent HITL Phone Orchestrator built on CALL-E</p>
+        </div>
+      </div>
+      <div class="system-status">
+        <span class="status-indicator active"></span>
+        <span class="status-text">CALL-E Engine Live</span>
+        <span class="badge badge-hipaa">HIPAA / PHI Gated</span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="dashboard-grid">
+
+      <!-- Left Column: Trigger EHR Events & Pipeline -->
+      <section class="panel panel-trigger">
+        <div class="panel-header">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+            EHR Event Simulator
+          </h2>
+          <span class="panel-tag">OpenDental & FHIR R4</span>
+        </div>
+        <p class="panel-desc">Simulate incoming clinical webhooks from dental & medical EHR systems to trigger agent workflows.</p>
+
+        <div class="event-presets">
+          <button class="preset-btn" onclick="quickTrigger('missed_appointment', 'PAT-8492', 'patient', 'OpenDental')">
+            <span class="preset-icon patient">📅</span>
+            <div class="preset-info">
+              <strong>Missed Appointment</strong>
+              <span>Patient Care Agent • Routine</span>
+            </div>
+          </button>
+
+          <button class="preset-btn" onclick="quickTrigger('invoice_60_days', 'PAT-5012', 'billing', 'FHIR R4')">
+            <span class="preset-icon billing">💳</span>
+            <div class="preset-info">
+              <strong>Invoice 60 Days Past Due</strong>
+              <span>Billing Agent • Priority</span>
+            </div>
+          </button>
+
+          <button class="preset-btn" onclick="quickTrigger('loan_inquiry_submitted', 'PAT-3391', 'lending', 'FHIR R4')">
+            <span class="preset-icon lending">🏦</span>
+            <div class="preset-info">
+              <strong>Patient Loan Inquiry</strong>
+              <span>Lending Agent • High Urgency</span>
+            </div>
+          </button>
+
+          <button class="preset-btn warning" onclick="quickTrigger('invoice_60_days', 'PAT-999', 'billing', 'FHIR R4')">
+            <span class="preset-icon denied">🚫</span>
+            <div class="preset-info">
+              <strong>Consent Denied Test</strong>
+              <span>TCPA Blocked • Hard Stop</span>
+            </div>
+          </button>
+        </div>
+
+        <form id="custom-event-form" class="custom-form">
+          <h3>Custom EHR Webhook Trigger</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Event Type</label>
+              <select id="event_type" required>
+                <option value="missed_appointment">missed_appointment</option>
+                <option value="no_checkin_48h">no_checkin_48h</option>
+                <option value="invoice_30_days">invoice_30_days</option>
+                <option value="invoice_60_days" selected>invoice_60_days</option>
+                <option value="invoice_90_days">invoice_90_days</option>
+                <option value="loan_inquiry_submitted">loan_inquiry_submitted</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Patient ID</label>
+              <input type="text" id="patient_id" value="PAT-4029" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>E.164 Phone</label>
+              <input type="text" id="patient_phone" value="+14155550199" required>
+            </div>
+            <div class="form-group">
+              <label>Source System</label>
+              <select id="source_system">
+                <option value="opendental">OpenDental API</option>
+                <option value="fhir_r4">FHIR R4 Webhook</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            <span>Dispatch EHR Event Webhook</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- Middle & Right Columns: Active Plans Queue & HITL Approvals -->
+      <section class="panel panel-plans">
+        <div class="panel-header">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></select>
+            Orchestration Queue & HITL Gate
+          </h2>
+          <button class="btn btn-sm btn-ghost" onclick="fetchPlans()">Refresh</button>
+        </div>
+
+        <div id="plans-list" class="plans-list">
+          <div class="empty-state">
+            <p>No active call plans in queue.</p>
+            <span>Trigger an event on the left to start the multi-agent pipeline.</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Row: Audit Log & PHI Compliance Inspector -->
+    <section class="panel panel-audit">
+      <div class="panel-header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          PHI Compliance & Immutable Audit Log
+        </h2>
+        <span class="badge badge-audit">Zero-PHI Enforcement</span>
+      </div>
+      <div class="audit-table-wrapper">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action</th>
+              <th>Plan ID</th>
+              <th>Agent</th>
+              <th>Actor / Admin</th>
+              <th>Reason / Details</th>
+            </tr>
+          </thead>
+          <tbody id="audit-log-body">
+            <tr><td colspan="6" class="text-center text-muted">Audit log empty</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- Edit Script Modal -->
+  <div id="edit-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Call Script (Admin HITL)</h3>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Review and customize the agent-generated script before approving CALL-E dispatch.</p>
+        <div class="form-group">
+          <label>Agent Script Prompt</label>
+          <textarea id="modal-script-text" rows="6"></textarea>
+        </div>
+        <input type="hidden" id="modal-plan-id">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmApproveWithScript()">Approve & Save Script</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

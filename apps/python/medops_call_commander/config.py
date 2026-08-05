@@ -15,7 +15,7 @@ class CalleConfig:
 
 def load_calle_config() -> CalleConfig:
     api_key = os.environ.get("CALLE_API_KEY")
-    base_url = os.environ.get("CALLE_BASE_URL")
+    base_url = os.environ.get("CALLE_BASE_URL") or os.environ.get("CALLE_API_BASE_URL")
 
     if not api_key:
         raise ConfigError("CALLE_API_KEY is not set")

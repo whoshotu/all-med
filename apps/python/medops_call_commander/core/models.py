@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from .enums import AgentType, CallOutcome, ConsentStatus, PlanState
@@ -16,7 +16,7 @@ class EHREvent:
     context: dict
     priority: str            # "routine" | "urgent"
     source_system: str       # "opendental" | "fhir_r4"
-    received_at: datetime = field(default_factory=datetime.utcnow)
+    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -32,7 +32,7 @@ class CallPlan:
     source_event: str
     state: PlanState = PlanState.CREATED
     dry_run: bool = True     # remains True until admin explicitly approves
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
     approved_by: Optional[str] = None
     approved_at: Optional[datetime] = None
@@ -62,7 +62,7 @@ class CallResult:
     outcome: CallOutcome
     transcript_ref: str      # opaque CALL-E ID only — no content stored locally
     structured: dict         # e.g. {"rescheduled": True, "promise_date": "2026-08-10"}
-    completed_at: datetime = field(default_factory=datetime.utcnow)
+    completed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -72,7 +72,7 @@ class AuditEntry:
     agent_type: Optional[str] = None
     admin_id: Optional[str] = None
     reason: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     # Never add phone numbers, patient names, balances, or transcript content
 
 

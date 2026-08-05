@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from ..core.enums import AgentType
@@ -50,7 +50,7 @@ class BaseAgent(ABC):
             priority=event.priority,
             source_event=event.event_type,
             dry_run=True,  # always True until HITL gate approves
-            expires_at=datetime.utcnow() + timedelta(hours=self.APPROVAL_WINDOW_HOURS),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=self.APPROVAL_WINDOW_HOURS),
         )
 
     @staticmethod
