@@ -35,7 +35,7 @@ class CalleClient:
             "metadata": {"plan_id": plan_id} if plan_id else {},
         }
         try:
-            resp = requests.post(url, json=payload, headers=self.headers, timeout=5)
+            resp = requests.post(url, json=payload, headers=self.headers, timeout=60)
             if resp.status_code in (200, 201):
                 return resp.json()
         except Exception as exc:

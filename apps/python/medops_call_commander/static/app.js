@@ -1,4 +1,9 @@
-document.addEventListener('DOMContentLoaded', () => {
+let _testPhone = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load server config first — pre-fills test phone if MEDOPS_TEST_PHONE is set
+  await loadConfig();
+
   fetchPlans();
   fetchAuditLog();
 
@@ -26,11 +31,32 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    if (cfg.test_phone) {
+      _testPhone = cfg.test_phone;
+      // Pre-fill the custom form phone field
+      document.getElementById('patient_phone').value = _testPhone;
+      // Show a test mode badge in the header
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-test';
+      badge.textContent = '🧪 Test Phone Active';
+      badge.title = _testPhone;
+      document.querySelector('.system-status').prepend(badge);
+    }
+  } catch (err) {
+    console.warn('Could not load /api/config:', err);
+  }
+}
+
 async function quickTrigger(eventType, patientId, agentType, sourceSystem) {
+  const phone = _testPhone || '+14155550199';
   await triggerEvent({
     event_type: eventType,
     patient_id: patientId,
-    patient_phone: '+14155550199',
+    patient_phone: phone,
     priority: eventType.includes('90') ? 'urgent' : 'routine',
     source_system: sourceSystem.toLowerCase().replace(' ', '_')
   });

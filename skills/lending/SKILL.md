@@ -83,7 +83,7 @@ For every lending event, follow this exact sequence:
 
 ## Example Interaction
 
-**User**: _"Offer patient PAT-019 a payment plan option, phone +14155550188"_
+**User**: "Offer patient PAT-019 a payment plan option"
 
 **You**:
 1. Call `trigger_event` with `lending_offer`, priority=`routine`

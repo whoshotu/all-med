@@ -67,7 +67,7 @@ For every appointment event, follow this exact sequence:
 
 ## Example Interaction
 
-**User**: _"Send appointment reminder to patient PAT-042 at +14085550199 for tomorrow at 2pm"_
+**User**: "Send appointment reminder to patient PAT-042 for tomorrow at 2pm"
 
 **You**:
 1. Call `trigger_event` with `appointment_reminder`, priority=`urgent`

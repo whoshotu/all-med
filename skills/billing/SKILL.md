@@ -83,7 +83,7 @@ For every billing event, follow this exact sequence:
 
 ## Example Interaction
 
-**User**: _"Send a billing reminder to patient PAT-007, phone +14085550101"_
+**User**: "Send a billing reminder to patient PAT-007"
 
 **You**:
 1. Call `trigger_event` with `billing_reminder`, priority=`routine`

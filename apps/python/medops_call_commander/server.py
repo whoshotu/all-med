@@ -40,7 +40,10 @@ app = FastAPI(
 
 # Shared memory state
 audit_log = AuditLog()
-executor = CallExecutor(CalleMcpProvider())
+# In test mode, executor._provider is replaced by conftest.py after import.
+_provider = None if os.environ.get("MEDOPS_TEST_MODE") == "1" else CalleMcpProvider()
+executor = CallExecutor(_provider)
+
 
 # Optional HITL Gate via Telegram
 hitl_gate: Optional[HITLGate] = None
@@ -51,15 +54,52 @@ if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_ADMIN_CHAT_
     except Exception as e:
         logger.warning("HITL Telegram Gate initialization skipped: %s", e)
 
-# Mock / Default Consent Source for demonstration when EHR consent APIs are offline
-class FallbackConsentSource:
-    def get_consent_status(self, patient_id: str, call_type: str) -> str:
-        # Default all sample patients to GRANTED unless patient_id starts with 'noconsent'
-        if patient_id.lower().startswith("noconsent") or patient_id == "PAT-999":
-            return "DENIED"
-        return "GRANTED"
 
-consent_gate = ConsentGate(FallbackConsentSource())
+# ---------------------------------------------------------------------------
+# EHR Consent Source — wired from configured adapter (required for production)
+# ---------------------------------------------------------------------------
+def _load_consent_source():
+    """
+    Returns the active EHR adapter to back the ConsentGate.
+    Prefers OpenDental if both OPENDENTAL_API_URL and OPENDENTAL_API_KEY are set.
+    Falls back to FHIR if FHIR_BASE_URL and FHIR_BEARER_TOKEN are set.
+    Raises RuntimeError at startup if neither is configured.
+
+    MEDOPS_TEST_MODE=1 bypasses this check for unit/integration tests only.
+    Never set this variable in production or staging environments.
+    """
+    if os.environ.get("MEDOPS_TEST_MODE") == "1":
+        # Minimal stub so server module can be imported in tests.
+        # Tests replace consent_gate._source with a real mock in conftest.py.
+        class _UnconfiguredStub:
+            def get_consent_status(self, patient_id: str, call_type: str) -> str:
+                raise RuntimeError("Test stub: consent_gate._source was not replaced by conftest.py")
+        return _UnconfiguredStub()
+
+    has_opendental = bool(
+        os.environ.get("OPENDENTAL_API_URL")
+        and os.environ.get("OPENDENTAL_DEVELOPER_KEY")
+    )
+    has_fhir = bool(
+        os.environ.get("FHIR_BASE_URL") and os.environ.get("FHIR_BEARER_TOKEN")
+    )
+
+    if has_opendental:
+        logger.info("ConsentGate: using OpenDental adapter.")
+        return OpenDentalAdapter()
+    if has_fhir:
+        logger.info("ConsentGate: using FHIR R4 adapter.")
+        return FHIRAdapter()
+
+    raise RuntimeError(
+        "No EHR adapter configured. Set OPENDENTAL_API_URL + OPENDENTAL_DEVELOPER_KEY "
+        "(+ OPENDENTAL_CUSTOMER_KEY for a real practice) or FHIR_BASE_URL + FHIR_BEARER_TOKEN "
+        "in your environment."
+    )
+
+consent_gate = ConsentGate(_load_consent_source())
+
+
 
 # In-memory storage for active plans
 PLANS_DB: Dict[str, CallPlan] = {}
@@ -69,7 +109,7 @@ RESULTS_DB: Dict[str, Any] = {}
 class TriggerEventRequest(BaseModel):
     event_type: str
     patient_id: str
-    patient_phone: Optional[str] = "+14155550199"
+    patient_phone: str  # E.164 format required, e.g. +12125550100
     priority: Optional[str] = "routine"
     source_system: Optional[str] = "opendental"
     context: Optional[Dict[str, Any]] = None
@@ -127,7 +167,7 @@ def trigger_event(req: TriggerEventRequest):
     event = EHREvent(
         event_type=req.event_type,
         patient_id=req.patient_id,
-        patient_phone=req.patient_phone or "+14155550199",
+        patient_phone=req.patient_phone,
         context=req.context or {"reference_id": f"REF-{req.patient_id}"},
         priority=req.priority or "routine",
         source_system=req.source_system or "opendental",
@@ -176,6 +216,25 @@ def trigger_event(req: TriggerEventRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except MedOpsBaseException as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/config")
+def get_config():
+    """
+    Returns non-sensitive dashboard configuration.
+    MEDOPS_TEST_PHONE is returned in full so the dashboard can pre-fill it,
+    but only when explicitly set in .env — never a default.
+    """
+    test_phone = os.environ.get("MEDOPS_TEST_PHONE", "").strip()
+    return {
+        "test_phone": test_phone or None,
+        "test_mode": bool(test_phone),
+        "ehr_adapter": (
+            "opendental" if os.environ.get("OPENDENTAL_DEVELOPER_KEY")
+            else "fhir" if os.environ.get("FHIR_BASE_URL")
+            else "none"
+        ),
+    }
 
 
 @app.get("/api/plans")
