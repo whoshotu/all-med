@@ -1,3 +1,59 @@
+
+function getAuthHeaders() {
+  const token = sessionStorage.getItem('medops_jwt');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function requireLogin() {
+  if (!sessionStorage.getItem('medops_jwt')) {
+    document.getElementById('login-overlay').style.display = 'flex';
+  } else {
+    document.getElementById('login-overlay').style.display = 'none';
+    resetInactivityTimer();
+  }
+}
+
+let inactivityTimer;
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  // 3 minutes auto-logoff
+  inactivityTimer = setTimeout(() => {
+    sessionStorage.removeItem('medops_jwt');
+    alert('Session expired due to inactivity. Please log in again.');
+    window.location.reload();
+  }, 3 * 60 * 1000);
+}
+document.addEventListener('mousemove', resetInactivityTimer);
+document.addEventListener('keypress', resetInactivityTimer);
+
+document.addEventListener('DOMContentLoaded', () => {
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = document.getElementById('login-username').value;
+      const pass = document.getElementById('login-password').value;
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ username: user, password: pass })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          sessionStorage.setItem('medops_jwt', data.access_token);
+          requireLogin();
+          window.location.reload(); // reload to fetch data
+        } else {
+          alert('Invalid credentials');
+        }
+      } catch (err) {
+        alert('Login failed: ' + err.message);
+      }
+    });
+  }
+  requireLogin();
+});
 let _testPhone = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -33,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadConfig() {
   try {
-    const res = await fetch('/api/config');
+    const res = await fetch('/api/config', { headers: getAuthHeaders() });
     const cfg = await res.json();
     if (cfg.test_phone) {
       _testPhone = cfg.test_phone;
@@ -66,7 +122,7 @@ async function triggerEvent(payload) {
   try {
     const res = await fetch('/api/events/trigger', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(payload)
     });
 
@@ -84,7 +140,7 @@ async function triggerEvent(payload) {
 
 async function fetchPlans() {
   try {
-    const res = await fetch('/api/plans');
+    const res = await fetch('/api/plans', { headers: getAuthHeaders() });
     const plans = await res.json();
     renderPlans(plans);
   } catch (err) {
@@ -94,7 +150,7 @@ async function fetchPlans() {
 
 async function fetchAuditLog() {
   try {
-    const res = await fetch('/api/audit');
+    const res = await fetch('/api/audit', { headers: getAuthHeaders() });
     const logs = await res.json();
     renderAuditLog(logs);
   } catch (err) {
@@ -195,7 +251,7 @@ async function approvePlan(planId, customScript = null) {
   try {
     const res = await fetch(`/api/plans/${planId}/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ script: customScript, admin_id: 'admin_web_dashboard' })
     });
     if (res.ok) {
@@ -213,7 +269,8 @@ async function approvePlan(planId, customScript = null) {
 async function dispatchPlan(planId) {
   try {
     const res = await fetch(`/api/plans/${planId}/dispatch`, {
-      method: 'POST'
+      method: 'POST',
+      headers: getAuthHeaders()
     });
     const data = await res.json();
     if (res.ok) {
@@ -229,7 +286,7 @@ async function dispatchPlan(planId) {
 
 async function dismissPlan(planId) {
   try {
-    await fetch(`/api/plans/${planId}/dismiss`, { method: 'POST' });
+    await fetch(`/api/plans/${planId}/dismiss`, { method: 'POST', headers: getAuthHeaders() });
     fetchPlans();
     fetchAuditLog();
   } catch (err) {

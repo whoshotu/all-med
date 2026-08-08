@@ -2,9 +2,11 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from cryptography.fernet import Fernet
+from apps.python.medops_call_commander.auth import verify_jwt_token, create_access_token
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -27,6 +29,11 @@ from apps.python.medops_call_commander.supervisor.router import route
 
 # Load environment
 load_dotenv()
+
+ENCRYPTION_KEY = os.environ.get("MEDOPS_ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    ENCRYPTION_KEY = Fernet.generate_key().decode()
+fernet = Fernet(ENCRYPTION_KEY)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -106,6 +113,17 @@ PLANS_DB: Dict[str, CallPlan] = {}
 RESULTS_DB: Dict[str, Any] = {}
 
 # Pydantic Schemas
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/login")
+def login(req: LoginRequest):
+    if req.username == "admin" and req.password == "medops2026":
+        token = create_access_token({"sub": req.username})
+        return {"access_token": token, "token_type": "bearer"}
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
 class TriggerEventRequest(BaseModel):
     event_type: str
     patient_id: str
@@ -159,7 +177,7 @@ def index_page():
 
 
 @app.post("/api/events/trigger")
-def trigger_event(req: TriggerEventRequest):
+def trigger_event(req: TriggerEventRequest, _=Depends(verify_jwt_token)):
     """
     Receives an EHR event payload, routes to the appropriate agent, checks patient consent,
     generates a CallPlan in PENDING_APPROVAL, and notifies HITL admin.
@@ -182,6 +200,8 @@ def trigger_event(req: TriggerEventRequest):
 
         # Step 3: Transition to PENDING_APPROVAL
         plan.state = PlanState.PENDING_APPROVAL
+        # Encrypt the E.164 phone number before saving to memory
+        plan.phone_e164 = fernet.encrypt(plan.phone_e164.encode()).decode()
         PLANS_DB[plan.plan_id] = plan
 
         # Step 4: Audit Entry
@@ -219,7 +239,7 @@ def trigger_event(req: TriggerEventRequest):
 
 
 @app.get("/api/config")
-def get_config():
+def get_config(_=Depends(verify_jwt_token)):
     """
     Returns non-sensitive dashboard configuration.
     MEDOPS_TEST_PHONE is returned in full so the dashboard can pre-fill it,
@@ -238,14 +258,14 @@ def get_config():
 
 
 @app.get("/api/plans")
-def list_plans():
+def list_plans(_=Depends(verify_jwt_token)):
     """List all call plans sorted by creation time descending."""
     sorted_plans = sorted(PLANS_DB.values(), key=lambda p: p.created_at, reverse=True)
     return [plan_to_dict(p) for p in sorted_plans]
 
 
 @app.get("/api/plans/{plan_id}")
-def get_plan(plan_id: str):
+def get_plan(plan_id: str, _=Depends(verify_jwt_token)):
     if plan_id not in PLANS_DB:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = PLANS_DB[plan_id]
@@ -254,7 +274,7 @@ def get_plan(plan_id: str):
 
 
 @app.post("/api/plans/{plan_id}/approve")
-def approve_plan(plan_id: str, req: ApprovePlanRequest):
+def approve_plan(plan_id: str, req: ApprovePlanRequest, _=Depends(verify_jwt_token)):
     """Approve call plan via Web Dashboard or Telegram callback."""
     if plan_id not in PLANS_DB:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -287,7 +307,7 @@ def approve_plan(plan_id: str, req: ApprovePlanRequest):
 
 
 @app.post("/api/plans/{plan_id}/dispatch")
-def dispatch_plan(plan_id: str, background_tasks: BackgroundTasks):
+def dispatch_plan(plan_id: str, background_tasks: BackgroundTasks, _=Depends(verify_jwt_token)):
     """Dispatches an approved CallPlan to CALL-E."""
     if plan_id not in PLANS_DB:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -301,6 +321,9 @@ def dispatch_plan(plan_id: str, background_tasks: BackgroundTasks):
 
     # Run dispatch
     try:
+        # Decrypt phone_e164 exactly before dispatch
+        if plan.phone_e164:
+            plan.phone_e164 = fernet.decrypt(plan.phone_e164.encode()).decode()
         call_result = executor.run(plan)
 
         # Store result
@@ -358,7 +381,7 @@ def dispatch_plan(plan_id: str, background_tasks: BackgroundTasks):
 
 
 @app.post("/api/plans/{plan_id}/dismiss")
-def dismiss_plan(plan_id: str):
+def dismiss_plan(plan_id: str, _=Depends(verify_jwt_token)):
     if plan_id not in PLANS_DB:
         raise HTTPException(status_code=404, detail="Plan not found")
     plan = PLANS_DB[plan_id]
@@ -373,7 +396,7 @@ def dismiss_plan(plan_id: str):
 
 
 @app.get("/api/audit")
-def get_audit_log():
+def get_audit_log(_=Depends(verify_jwt_token)):
     """Retrieve full audit log entries."""
     entries = audit_log.all()
     return [

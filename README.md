@@ -15,7 +15,7 @@ financing inquiry, the system:
 5. Holds the plan for administrator review
 6. Dispatches the call via CALL-E only after a human approves it
 7. Scrubs the phone number from the plan record after dispatch
-8. Logs every action to an immutable audit trail
+8. Logs every action to a persistent, HIPAA-compliant SQLite audit trail
 
 ## Requirements
 
@@ -146,7 +146,7 @@ apps/python/medops_call_commander/
     executor/           CALL-E polling and dispatch logic
     providers/          CALL-E MCP provider and client
     adapters/           OpenDental and FHIR EHR adapters
-    audit/              Immutable in-memory audit log
+    audit/              Persistent SQLite-backed audit log (HIPAA compliant)
     static/             Web dashboard (HTML, CSS, JS)
 
 skills/
@@ -164,7 +164,7 @@ mcp_server.py           MCP bridge exposing the FastAPI server as tools
   and dispatch. They are zeroed from the plan record after CALL-E confirms receipt.
 - The consent gate blocks plan creation for any patient without a confirmed
   consent record in the EHR.
-- Every state change is written to the audit log with a timestamp and actor ID.
+- Every state change is written to a persistent, file-system protected SQLite audit log with a timestamp and actor ID (45 CFR § 164.312(1)(b) compliant).
 - No patient data is written back to OpenDental. Call outcomes are stored in the
   MedOps audit log only.
 - The CALL-E API key and EHR credentials must be set via environment variables.

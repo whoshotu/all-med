@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: medops-backend
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn apps.python.medops_call_commander.server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: MEDOPS_TEST_MODE
+        value: "0"
