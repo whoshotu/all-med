@@ -162,19 +162,9 @@ def plan_to_dict(plan: CallPlan) -> Dict[str, Any]:
 
 
 # Static assets mount
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def index_page():
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        with open(index_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return "<h1>MedOps Call Commander API Running</h1><p>Static interface files not found.</p>"
-
+    return {"status": "MedOps Call Commander API Running"}
 
 @app.post("/api/events/trigger")
 def trigger_event(req: TriggerEventRequest, _=Depends(verify_jwt_token)):

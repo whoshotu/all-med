@@ -1,0 +1,9 @@
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.git/
+apps/web/dist/
+.env
+medops_audit.db

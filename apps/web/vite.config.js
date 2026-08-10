@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'https://medops-backend-sh36.onrender.com',
         changeOrigin: true,
       }
     }
