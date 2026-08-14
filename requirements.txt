@@ -12,3 +12,4 @@ PyJWT>=2.8.0
 # AGY SDK + MCP bridge
 google-antigravity>=0.1.9
 mcp[cli]>=2.0.0
+firebase-admin>=6.4.0
