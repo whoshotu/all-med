@@ -7,6 +7,7 @@ from apps.python.medops_call_commander.auth import verify_jwt_token
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -43,6 +44,14 @@ app = FastAPI(
     title="MedOps Call Commander",
     description="Multi-agent HITL Phone Call Orchestration for Medical Practice Operations",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Shared memory state
