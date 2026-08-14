@@ -17,7 +17,8 @@ try:
             cred = credentials.Certificate(cert_path)
             firebase_admin.initialize_app(cred)
         else:
-            firebase_admin.initialize_app()
+            # For token verification only, we just need the project ID
+            firebase_admin.initialize_app(options={'projectId': 'gen-lang-client-0574518291'})
 except Exception as e:
     print(f"Warning: Firebase Admin SDK initialization failed: {e}")
 

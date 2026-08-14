@@ -18,7 +18,7 @@ export default function SecurityDashboard() {
     try {
       setLoading(true);
       const token = sessionStorage.getItem('medops_jwt');
-      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
       const response = await fetch(`${API_BASE}/api/audit`, {
         headers: {
           'Authorization': `Bearer ${token}`

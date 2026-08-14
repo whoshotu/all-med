@@ -20,7 +20,7 @@ export default function Dashboard() {
     }
 
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
       const response = await fetch(`${API_BASE}/api/plans`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -58,7 +58,7 @@ export default function Dashboard() {
   const handleTrigger = async (eventType) => {
     const token = sessionStorage.getItem('medops_jwt');
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
       const response = await fetch(`${API_BASE}/api/events/trigger`, {
         method: 'POST',
         headers: { 
