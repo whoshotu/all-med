@@ -27,7 +27,9 @@ def verify_jwt_token(credentials: HTTPAuthorizationCredentials = Security(securi
     Verifies a Firebase ID token.
     Bypasses verification if MEDOPS_TEST_MODE is active to allow tests to run.
     """
-    if os.environ.get("MEDOPS_TEST_MODE") == "1" or os.environ.get("MEDOPS_BYPASS_AUTH") == "1":
+    bypass_auth = os.environ.get("MEDOPS_BYPASS_AUTH", "").lower() in ("1", "true", "yes", "on")
+    test_mode = os.environ.get("MEDOPS_TEST_MODE", "").lower() in ("1", "true", "yes", "on")
+    if bypass_auth or test_mode:
         # In test mode or bypass mode, allow tests/demos to pass by simulating a valid token payload.
         # Tests can pass a mock token to specify roles, e.g., "admin_test_token"
         token = credentials.credentials

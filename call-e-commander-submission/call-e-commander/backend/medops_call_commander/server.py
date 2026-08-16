@@ -92,6 +92,14 @@ def _load_consent_source():
                 raise RuntimeError("Test stub: consent_gate._source was not replaced by conftest.py")
         return _UnconfiguredStub()
 
+    bypass_auth = os.environ.get("MEDOPS_BYPASS_AUTH", "").lower() in ("1", "true", "yes", "on")
+    if bypass_auth:
+        class _BypassConsent:
+            def get_consent_status(self, patient_id: str, call_type: str) -> str:
+                return "granted"
+        logger.info("ConsentGate: MEDOPS_BYPASS_AUTH is active. Bypassing EHR consent checks.")
+        return _BypassConsent()
+
     has_opendental = bool(
         os.environ.get("OPENDENTAL_API_URL")
         and os.environ.get("OPENDENTAL_DEVELOPER_KEY")

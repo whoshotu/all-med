@@ -68,7 +68,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           event_type: eventType,
           patient_id: "PAT-TEST-1",
-          patient_phone: "+12125550101",
+          patient_phone: "+16615315664",
           source_system: "opendental"
         })
       });
