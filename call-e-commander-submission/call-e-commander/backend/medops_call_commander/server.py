@@ -257,7 +257,7 @@ def get_config(_=Depends(verify_jwt_token)):
 def list_plans(_=Depends(verify_jwt_token)):
     """List all call plans sorted by creation time descending."""
     sorted_plans = sorted(PLANS_DB.values(), key=lambda p: p.created_at, reverse=True)
-    return [plan_to_dict(p) for p in sorted_plans]
+    return {"plans": [plan_to_dict(p) for p in sorted_plans]}
 
 
 @app.get("/api/plans/{plan_id}")
