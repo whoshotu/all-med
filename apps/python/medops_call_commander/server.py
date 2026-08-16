@@ -96,7 +96,7 @@ def _load_consent_source():
     if bypass_auth:
         class _BypassConsent:
             def get_consent_status(self, patient_id: str, call_type: str) -> str:
-                return "granted"
+                return "GRANTED"
         logger.info("ConsentGate: MEDOPS_BYPASS_AUTH is active. Bypassing EHR consent checks.")
         return _BypassConsent()
 
