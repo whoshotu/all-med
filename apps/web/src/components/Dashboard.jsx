@@ -85,6 +85,41 @@ export default function Dashboard() {
     }
   };
 
+  const handleAction = async (planId, action) => {
+    const token = sessionStorage.getItem('medops_jwt');
+    try {
+      const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+      
+      // Step 1: Execute primary action
+      let response = await fetch(`${API_BASE}/api/plans/${planId}/${action}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      
+      if (!response.ok) throw new Error(`Failed to ${action} plan`);
+      
+      // Step 2: Auto-dispatch immediately if we just approved
+      if (action === 'approve') {
+        let dispatchResponse = await fetch(`${API_BASE}/api/plans/${planId}/dispatch`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!dispatchResponse.ok) throw new Error('Failed to dispatch approved plan');
+      }
+      
+      fetchPlans();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   if (isIdle) {
     return (
       <div className="login-container idle-blur">
@@ -152,6 +187,7 @@ export default function Dashboard() {
                     <th>Patient ID</th>
                     <th>Consent</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,9 +206,17 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td>
-                        <span className={`status-badge ${plan.status === 'completed' ? 'status-completed' : 'status-pending'}`}>
-                          {plan.status.toUpperCase()}
+                        <span className={`status-badge ${plan.state === 'completed' ? 'status-completed' : 'status-pending'}`}>
+                          {plan.state.toUpperCase()}
                         </span>
+                      </td>
+                      <td>
+                        {plan.state === 'PENDING_APPROVAL' && (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-primary" onClick={() => handleAction(plan.plan_id, 'approve')} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>Approve</button>
+                            <button className="btn btn-outline" onClick={() => handleAction(plan.plan_id, 'dismiss')} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger-red)', color: 'var(--color-danger-red)' }}>Deny</button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

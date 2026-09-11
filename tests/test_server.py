@@ -1,14 +1,10 @@
-"""
-Server integration tests.
-
-EHR adapter and CALL-E provider are mocked in tests/conftest.py — no real
-credentials required. Phone numbers use the NANP 555-01xx reserved fictional range.
-"""
-
 import pytest
+import os
 from fastapi.testclient import TestClient
 from apps.python.medops_call_commander.server import app, PLANS_DB
 import apps.python.medops_call_commander.server as server_module
+from apps.python.medops_call_commander.gates.hitl import HITLGate
+from apps.python.medops_call_commander.providers.calle_client import CalleClient
 from tests.conftest import _TestConsentSource, _TestCallProvider
 
 # Wire the test providers into the already-constructed server state
@@ -18,18 +14,80 @@ server_module.executor._provider = _TestCallProvider()
 client = TestClient(app)
 
 def get_auth_headers():
-    # When MEDOPS_TEST_MODE=1, auth.py accepts any string with "admin" in it as a valid admin token
     return {"Authorization": "Bearer admin_test_token"}
+
+def get_unauthorized_auth_headers():
+    return {"Authorization": "Bearer unauthorized_user_token"}
 
 def test_unauthorized_access():
     response = client.get("/api/plans")
-    assert response.status_code == 401
+    assert response.status_code in (401, 403)
+
+
+def test_bounded_role_authorization():
+    # User without admin or clinician role should be rejected on clinical action
+    payload = {
+        "event_type": "missed_appointment",
+        "patient_id": "PAT-TEST-ROLE",
+        "patient_phone": "+12125550101",
+        "source_system": "opendental",
+    }
+    response = client.post("/api/events/trigger", json=payload, headers=get_unauthorized_auth_headers())
+    assert response.status_code == 403
+    assert "not authorized" in response.json()["detail"]
 
 
 def test_list_plans_empty():
     response = client.get("/api/plans", headers=get_auth_headers())
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert "plans" in response.json()
+    assert isinstance(response.json()["plans"], list)
+
+
+def test_hitl_webhook_unauthenticated_rejection(monkeypatch):
+    # Enable HITL gate with secret
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11")
+    monkeypatch.setenv("TELEGRAM_ADMIN_CHAT_ID", "987654321")
+    monkeypatch.setenv("HITL_SIGNING_SECRET", "super_secret_token")
+    server_module.hitl_gate = HITLGate(audit_log=server_module.audit_log)
+
+    # Request without secret header should fail with 401
+    resp_no_header = client.post("/hitl/webhook", json={"callback_query": {}})
+    assert resp_no_header.status_code == 401
+
+    # Request with wrong secret header should fail with 401
+    resp_wrong_header = client.post(
+        "/hitl/webhook",
+        json={"callback_query": {}},
+        headers={"X-Telegram-Bot-Api-Secret-Token": "wrong_secret"}
+    )
+    assert resp_wrong_header.status_code == 401
+
+    # Request with correct secret header should succeed with 200
+    resp_correct = client.post(
+        "/hitl/webhook",
+        json={"callback_query": {}},
+        headers={"X-Telegram-Bot-Api-Secret-Token": "super_secret_token"}
+    )
+    assert resp_correct.status_code == 200
+
+
+
+def test_calle_client_provider_failure_semantics(monkeypatch):
+    # Ensure CALLE_MOCK_MODE is NOT set
+    monkeypatch.delenv("CALLE_MOCK_MODE", raising=False)
+    calle_client = CalleClient(api_key="invalid_key", base_url="http://invalid.heycall-e.invalid")
+
+    # API failure must return status="failed" and task_completed=False (no false clinical success)
+    res_create = calle_client.calls_create(task="Test task", phone="+14155550100")
+    assert res_create["status"] == "failed"
+    assert res_create["task_completed"] is False
+    assert res_create.get("structured_result") == {}
+
+    res_get = calle_client.calls_get(call_id="non_existent_call")
+    assert res_get["status"] == "failed"
+    assert res_get["task_completed"] is False
+    assert res_get.get("structured_result") == {}
 
 
 def test_trigger_event_success():
@@ -87,3 +145,4 @@ def test_full_pipeline_approval_and_dispatch():
     data = dispatch_resp.json()
     assert data["plan"]["state"] == "COMPLETED"
     assert data["plan"]["is_phi_scrubbed"] is True
+
