@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export function useIdleTimeout(timeoutMs = 180000) {
@@ -6,7 +6,7 @@ export function useIdleTimeout(timeoutMs = 180000) {
   const timeoutRef = useRef(null);
   const navigate = useNavigate();
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -17,7 +17,7 @@ export function useIdleTimeout(timeoutMs = 180000) {
       sessionStorage.removeItem('medops_jwt');
       navigate('/login');
     }, timeoutMs);
-  };
+  }, [navigate]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -37,7 +37,7 @@ export function useIdleTimeout(timeoutMs = 180000) {
         window.removeEventListener(event, resetTimer);
       });
     };
-  }, []);
+  }, [resetTimer]);
 
   return isIdle;
 }

@@ -1,6 +1,6 @@
 {
   "projects": {
-    "all-med": "gen-lang-client-0574518291"
+    "default": "gen-lang-client-0574518291"
   },
   "targets": {},
   "etags": {}
