@@ -171,6 +171,7 @@ def plan_to_dict(plan: CallPlan) -> Dict[str, Any]:
         "scrubbed_at": plan.scrubbed_at.isoformat() if plan.scrubbed_at else None,
         "result_ref": plan.result_ref,
         "is_phi_scrubbed": plan.is_phi_scrubbed(),
+        "result": RESULTS_DB.get(plan.plan_id),
     }
 
 
