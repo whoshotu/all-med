@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from cryptography.fernet import Fernet
@@ -10,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from apps.python.medops_call_commander.adapters.fhir import FHIRAdapter
 from apps.python.medops_call_commander.adapters.opendental import OpenDentalAdapter
@@ -137,13 +138,31 @@ PLANS_DB: Dict[str, CallPlan] = {}
 RESULTS_DB: Dict[str, Any] = {}
 
 
+_E164_RE = re.compile(r'^\+[1-9][0-9]{7,14}$')
+
+
 class TriggerEventRequest(BaseModel):
     event_type: str
     patient_id: str
-    patient_phone: str  # E.164 format required, e.g. +12125550100
+    patient_phone: str  # Strict E.164 — ASCII +, country code, 7-14 digits, no spaces or dashes
     priority: Optional[str] = "routine"
     source_system: Optional[str] = "opendental"
     context: Optional[Dict[str, Any]] = None
+
+    @field_validator("patient_phone")
+    @classmethod
+    def validate_e164(cls, v: str) -> str:
+        """Enforce strict ITU-T E.164: ASCII +, 1–9 country digit, 7–14 more digits."""
+        if not isinstance(v, str) or not v.isascii():
+            raise ValueError(
+                "patient_phone must be an ASCII E.164 string (e.g. +12125550100)"
+            )
+        if not _E164_RE.match(v.strip()):
+            raise ValueError(
+                "patient_phone must be in strict E.164 format: '+' followed by "
+                "country code and 7–14 digits, no spaces or punctuation (e.g. +12125550100)"
+            )
+        return v.strip()
 
 class ApprovePlanRequest(BaseModel):
     script: Optional[str] = None

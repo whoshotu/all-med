@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 class CalleClient:
     """
     Python client for the CALL-E Developer API.
-    Interfaces with https://api.heycall-e.com and provides seamless fallback simulation
-    for hackathon demos and testing.
+    Interfaces with https://api.heycall-e.com.
+
+    Set CALLE_MOCK_MODE=1 for offline testing — no HTTP requests are made and
+    a deterministic mock response is returned immediately.  Never set this in
+    production or staging environments.
     """
 
     def __init__(self, api_key: str, base_url: Optional[str] = None) -> None:
@@ -28,58 +31,70 @@ class CalleClient:
         # In-memory registry for call status tracking during simulation
         self._mock_calls: Dict[str, Dict[str, Any]] = {}
 
+    @staticmethod
+    def _is_mock_mode() -> bool:
+        return os.environ.get("CALLE_MOCK_MODE", "").lower() in ("1", "true", "yes", "on")
+
     def calls_create(self, task: str, phone: Optional[str] = None, plan_id: Optional[str] = None) -> Dict[str, Any]:
-        """Creates an outbound call or registers a simulated call."""
+        """Creates an outbound call or returns a simulated call in mock mode."""
+        # ------------------------------------------------------------------
+        # Mock mode: branch BEFORE any network I/O.
+        # CALLE_MOCK_MODE=1 guarantees zero HTTP requests are attempted.
+        # ------------------------------------------------------------------
+        if self._is_mock_mode():
+            call_id = f"call_e_mock_{uuid.uuid4().hex[:10]}"
+            mock_data = {
+                "id": call_id,
+                "status": "completed",
+                "task_completed": True,
+                "task": task,
+                # Raw phone is intentionally omitted — never echoed back.
+                "structured_result": {
+                    "reschedule_confirmed": True,
+                    "promise_date": "2026-08-12",
+                    "call_summary": "[MOCK] Patient confirmed appointment reschedule.",
+                },
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
+            self._mock_calls[call_id] = mock_data
+            logger.info("CALL-E mock mode: returning simulated call %s (no HTTP request made).", call_id)
+            return mock_data
+
+        # ------------------------------------------------------------------
+        # Live mode: make the real API call.
+        # ------------------------------------------------------------------
         url = f"{self.base_url}/v1/calls"
         payload = {
             "task": task,
             "recipients": [{"phones": [phone or "+14155550100"], "region": "US"}] if phone else [],
             "metadata": {"plan_id": plan_id} if plan_id else {},
         }
-        mock_enabled = os.environ.get("CALLE_MOCK_MODE", "").lower() in ("1", "true", "yes", "on")
         try:
             resp = requests.post(url, json=payload, headers=self.headers, timeout=60)
             if resp.status_code in (200, 201):
                 return resp.json()
-            elif not mock_enabled:
-                logger.error("CALL-E API creation error HTTP %s: %s", resp.status_code, resp.text)
-                return {
-                    "id": f"call_failed_{uuid.uuid4().hex[:8]}",
-                    "status": "failed",
-                    "task_completed": False,
-                    "error": f"API returned status {resp.status_code}",
-                    "structured_result": {},
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }
+            logger.error(
+                "CALL-E API creation error HTTP %s (phone: <masked>).",
+                resp.status_code,
+            )
+            return {
+                "id": f"call_failed_{uuid.uuid4().hex[:8]}",
+                "status": "failed",
+                "task_completed": False,
+                "error": f"API returned status {resp.status_code}",
+                "structured_result": {},
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
         except Exception as exc:
-            logger.error("CALL-E API request exception: %s", exc)
-            if not mock_enabled:
-                return {
-                    "id": f"call_failed_{uuid.uuid4().hex[:8]}",
-                    "status": "failed",
-                    "task_completed": False,
-                    "error": str(exc),
-                    "structured_result": {},
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }
-
-        # Explicit mock mode only (CALLE_MOCK_MODE=1) for offline dry-run testing
-        call_id = f"call_e_mock_{uuid.uuid4().hex[:10]}"
-        mock_data = {
-            "id": call_id,
-            "status": "completed",
-            "task_completed": True,
-            "task": task,
-            "phone": phone,
-            "structured_result": {
-                "reschedule_confirmed": True,
-                "promise_date": "2026-08-12",
-                "call_summary": "[MOCK DEMO] Patient confirmed appointment reschedule."
-            },
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        }
-        self._mock_calls[call_id] = mock_data
-        return mock_data
+            logger.error("CALL-E API request exception (phone: <masked>): %s", exc)
+            return {
+                "id": f"call_failed_{uuid.uuid4().hex[:8]}",
+                "status": "failed",
+                "task_completed": False,
+                "error": str(exc),
+                "structured_result": {},
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
 
     def calls_get(self, call_id: str) -> Dict[str, Any]:
         """Fetch call status and result."""

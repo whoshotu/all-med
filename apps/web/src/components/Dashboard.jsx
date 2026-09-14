@@ -42,7 +42,13 @@ export default function Dashboard() {
       setPlans(data.plans || []);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      // TypeError means the request never reached the server (network down,
+      // CORS, etc.). The call plan state on the server is unchanged.
+      if (err instanceof TypeError) {
+        setError('Unable to reach server — call state unchanged. Check your connection.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -281,7 +287,7 @@ export default function Dashboard() {
                           {plan.state === 'PENDING_APPROVAL' ? (
                             <>
                               <button className="btn btn-primary" onClick={() => handleAction(plan.plan_id, 'approve')} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>Approve</button>
-                              <button className="btn btn-outline" onClick={() => handleAction(plan.plan_id, 'dismiss')} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger-red)', color: 'var(--color-danger-red)' }}>Deny</button>
+                              <button className="btn btn-outline" onClick={() => handleAction(plan.plan_id, 'dismiss')} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger-red)', color: 'var(--color-danger-red)' }}>Dismiss</button>
                             </>
                           ) : null}
                           <button 

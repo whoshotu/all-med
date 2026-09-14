@@ -139,10 +139,32 @@ def test_full_pipeline_approval_and_dispatch():
     }, headers=get_auth_headers())
     assert approve_resp.status_code == 200
 
-    # 3. Dispatch
+    # 3. Dispatch — bypass-mode tokens are intentionally blocked from dispatch.
+    # In MEDOPS_TEST_MODE the auth layer sets _bypass_mode=True, which prevents
+    # any live provider call from being made. This is the correct behaviour:
+    # dispatch requires real credentials, not the test bypass.
     dispatch_resp = client.post(f"/api/plans/{plan_id}/dispatch", headers=get_auth_headers())
-    assert dispatch_resp.status_code == 200
-    data = dispatch_resp.json()
-    assert data["plan"]["state"] == "COMPLETED"
-    assert data["plan"]["is_phi_scrubbed"] is True
+    assert dispatch_resp.status_code == 403
+    assert "bypass" in dispatch_resp.json()["detail"].lower()
+
+
+def test_bypass_mode_cannot_dispatch():
+    """Bypass / test-mode tokens must never be able to call the dispatch endpoint."""
+    trigger_resp = client.post("/api/events/trigger", json={
+        "event_type": "missed_appointment",
+        "patient_id": "PAT-BYPASS-01",
+        "patient_phone": "+12025550142",
+        "source_system": "opendental",
+    }, headers=get_auth_headers())
+    assert trigger_resp.status_code == 200
+    plan_id = trigger_resp.json()["plan"]["plan_id"]
+
+    client.post(f"/api/plans/{plan_id}/approve", json={"admin_id": "test_admin"}, headers=get_auth_headers())
+
+    dispatch_resp = client.post(f"/api/plans/{plan_id}/dispatch", headers=get_auth_headers())
+    assert dispatch_resp.status_code == 403, (
+        "Bypass-mode token must not be able to dispatch a live call"
+    )
+    detail = dispatch_resp.json().get("detail", "")
+    assert "bypass" in detail.lower() or "Bypass" in detail
 

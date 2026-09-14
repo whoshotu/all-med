@@ -32,6 +32,10 @@ cd all-med
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# The server uses a namespace package path (apps.python.medops_call_commander).
+# PYTHONPATH must include the repo root so Python can resolve the import.
+export PYTHONPATH="$PWD"
 ```
 
 Copy the environment template and fill in your credentials:
@@ -86,7 +90,7 @@ All configuration is through environment variables. The full reference is in `.e
 | `TELEGRAM_ADMIN_CHAT_ID` | Telegram chat ID to receive approval requests |
 | `HITL_SIGNING_SECRET` | HMAC secret for verifying Telegram callback authenticity |
 | `MEDOPS_TEST_PHONE` | Your phone number for end-to-end testing (E.164 format) |
-| `MEDOPS_CONSENT_BYPASS` | Set to `1` to skip consent check during demo testing only |
+| `MEDOPS_BYPASS_AUTH` | Set to `1` to skip Firebase auth and consent checks during local dev only. **Never use in production.** |
 | `OPENDENTAL_CONSENT_FIELD` | Name of the PatField storing TCPA consent (default: MEDOPS_CALL_CONSENT) |
 
 ## OpenDental API Setup
